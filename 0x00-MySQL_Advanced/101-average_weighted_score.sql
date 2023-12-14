@@ -1,53 +1,34 @@
 -- Stored Procedure ComputeAverageWeightedScoreForUsers
-DELIMITER //
-
-CREATE PROCEDURE ComputeAverageWeightedScoreForUsers()
+DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUsers;
+DELIMITER $$
+CREATE PROCEDURE ComputeAverageWeightedScoreForUsers ()
 BEGIN
-    DECLARE user_id_param INT;
-    
-    -- Declare cursor for all users
-    DECLARE user_cursor CURSOR FOR SELECT id FROM users;
-    
-    -- Declare variables
-    DECLARE done INT DEFAULT FALSE;
-    DECLARE weighted_score FLOAT;
-    DECLARE total_weight FLOAT;
+    ALTER TABLE users ADD total_weighted_score INT NOT NULL;
+    ALTER TABLE users ADD total_weight INT NOT NULL;
 
-    -- Declare handlers
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    UPDATE users
+        SET total_weighted_score = (
+            SELECT SUM(corrections.score * projects.weight)
+            FROM corrections
+                INNER JOIN projects
+                    ON corrections.project_id = projects.id
+            WHERE corrections.user_id = users.id
+            );
 
-    -- Open cursor
-    OPEN user_cursor;
+    UPDATE users
+        SET total_weight = (
+            SELECT SUM(projects.weight)
+                FROM corrections
+                    INNER JOIN projects
+                        ON corrections.project_id = projects.id
+                WHERE corrections.user_id = users.id
+            );
 
-    -- Start looping through users
-    user_loop: LOOP
-        -- Fetch user_id from cursor
-        FETCH user_cursor INTO user_id_param;
-
-        -- Check if done fetching
-        IF done THEN
-            LEAVE user_loop;
-        END IF;
-
-        -- Initialize variables
-        SET weighted_score = 0;
-        SET total_weight = 0;
-
-        -- Calculate weighted score for each project
-        SELECT SUM(corrections.score * projects.weight) INTO weighted_score,
-               SUM(projects.weight) INTO total_weight
-        FROM corrections
-        JOIN projects ON corrections.project_id = projects.id
-        WHERE corrections.user_id = user_id_param;
-
-        -- Update average_score in the users table
-        UPDATE users
-        SET average_score = IFNULL(weighted_score / NULLIF(total_weight, 0), 0)
-        WHERE id = user_id_param;
-    END LOOP;
-
-    -- Close cursor
-    CLOSE user_cursor;
-END //
-
+    UPDATE users
+        SET users.average_score = IF(users.total_weight = 0, 0, users.total_weighted_score / users.total_weight);
+    ALTER TABLE users
+        DROP COLUMN total_weighted_score;
+    ALTER TABLE users
+        DROP COLUMN total_weight;
+END $$
 DELIMITER ;
