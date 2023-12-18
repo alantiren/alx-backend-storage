@@ -6,17 +6,14 @@ from pymongo import MongoClient
 
 def print_nginx_request_logs(nginx_collection):
     '''Prints statistics about Nginx request logs.'''
-    # Display the total number of logs
     print('{} logs'.format(nginx_collection.count_documents({})))
 
-    # Display statistics for different HTTP methods
     print('Methods:')
     methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
     for method in methods:
         req_count = nginx_collection.count_documents({'method': method})
         print('\tmethod {}: {}'.format(method, req_count))
-    
-    # Display the number of status check requests
+
     status_checks_count = nginx_collection.count_documents({'method': 'GET', 'path': '/status'})
     print('{} status check'.format(status_checks_count))
 
@@ -25,7 +22,6 @@ def print_top_ips(server_collection):
     '''Prints statistics about the top 10 HTTP IPs in a collection.'''
     print('Top IPs:')
     try:
-        # Aggregate and display the top 10 IPs based on the number of requests
         request_logs = server_collection.aggregate([
             {'$group': {'_id': "$ip", 'totalRequests': {'$sum': 1}}},
             {'$sort': {'totalRequests': -1}},
@@ -42,13 +38,10 @@ def print_top_ips(server_collection):
 def run():
     '''Provides some stats about Nginx logs stored in MongoDB.'''
     try:
-        # Establish a connection to MongoDB
         client = MongoClient('mongodb://127.0.0.1:27017')
 
-        # Display Nginx request log statistics
         print_nginx_request_logs(client.logs.nginx)
 
-        # Display statistics about the top 10 IPs
         print_top_ips(client.logs.nginx)
 
     except Exception as e:
