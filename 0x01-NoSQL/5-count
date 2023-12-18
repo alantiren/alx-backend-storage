@@ -1,0 +1,4 @@
+// 5-count
+// Displays the number of documents in the collection school
+// The database name will be passed as an option of the mongo command
+db.school.find().count();
